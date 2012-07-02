@@ -18,18 +18,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "/usr/include/python2.6/Python.h"
-	void printDict(PyObject* obj) {  
-		if (!PyDict_Check(obj))  
-			return;  
-		PyObject *k, *keys;  
-		keys = PyDict_Keys(obj);  
-		int i = 0;
-		for (i = 0; i < PyList_GET_SIZE(keys); i++) {  
-			k = PyList_GET_ITEM(keys, i);  
-			char* c_name = PyString_AsString(k);  
-			printf("%s\n", c_name);  
-		}  
+
+void printDict(PyObject* obj) 
+{  
+	if (!PyDict_Check(obj))  
+		return;  
+	PyObject *k, *keys;  
+	keys = PyDict_Keys(obj);  
+	int i = 0;
+	for (i = 0; i < PyList_GET_SIZE(keys); i++) {  
+		k = PyList_GET_ITEM(keys, i);  
+		char* c_name = PyString_AsString(k);  
+		printf("%s\n", c_name);  
 	}  
+}  
 
 int main(int argc, char* argv[])
 {
@@ -132,7 +134,7 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
-	PyObject_CallMethod(pInstancePerson, "s", "Huang");
+	PyObject_CallMethod(pInstancePerson,"sayHi", "s", "Huang");
 
 	Py_DECREF(pModel);
 	Py_DECREF(pDict);
