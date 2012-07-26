@@ -14,7 +14,10 @@ static PyObject* wrap_void_c_fun(PyObject* self, PyObject* args)
 {
 	void_c_function();
 
+	Py_INCREF(Py_None);
 	return Py_None;
+	//或者如下方法也可行
+	//return Py_BuildValue("");
 }
 
 static PyObject * wrap_my_c_fun(PyObject *self, PyObject *args) {
