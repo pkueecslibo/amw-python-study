@@ -4,6 +4,17 @@ int my_c_function(const char *arg) {
   int n = system(arg);
   return n;
 }
+
+void void_c_func()
+{
+	printf("this is a no arg func.\n");
+}
+
+static void wrap_void_c_func(PyObject* self)
+{
+	void_c_func();
+}
+
 // 2 python 包装
 static PyObject * wrap_my_c_fun(PyObject *self, PyObject *args) {
   const char * command;
@@ -17,6 +28,7 @@ static PyObject * wrap_my_c_fun(PyObject *self, PyObject *args) {
 static PyMethodDef MyCppMethods[] = {
     //MyCppFun1是python中注册的函数名，wrap_my_c_fun是函数指针
     { "MyCppFun1", wrap_my_c_fun, METH_VARARGS, "Execute a shell command." },
+    { "MyCppFun2", wrap_void_c_fun, METH_VARARGS, "Execute a shell command." },
     { NULL, NULL, 0, NULL }
 };
 // 4 模块初始化方法
