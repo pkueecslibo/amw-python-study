@@ -4,3 +4,4 @@ import MyCppModule
 r = MyCppModule.MyCppFun1("ls -l")
 print r 
 print "OK"  
+MyCppModule.MyCppFun2()
