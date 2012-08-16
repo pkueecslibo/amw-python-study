@@ -6,6 +6,6 @@ try:
 except Exception, err:
     print 'Caught exception:', err
 except KeyboardInterrupt, err:
-    print 'Caught exception:'
+    print 'Caught KeyboardInterrupt'
 else:
     print 'No exception'
