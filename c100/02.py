@@ -14,7 +14,15 @@ import sys
 
 if __name__ == '__main__':
 
-    profit = raw_input()
+    bonus_per = (0.0, 0.1, 0.075, 0.05, 0.03, 0.015, 0.01)
+    key_point = (0, 10, 20, 40, 60, 100)
+    profit = eval(raw_input())
     bonus = 0
 
-    print profit
+    for i in range(1, 6, 1):
+        if profit > key_point[i]:
+            bonus += (key_point[i] - key_point[i-1]) * bonus_per[i]
+        else:
+            bonus += (profit - key_point[i - 1]) * bonus_per[i]
+            break
+    print 'bonus =', bonus
