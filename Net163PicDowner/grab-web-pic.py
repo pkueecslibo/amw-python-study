@@ -55,11 +55,12 @@ def gGetHtml(url):
     if not httpExists(url): return 
     try:
         page = urllib.urlopen(url)   
-        html = page.read()
+        html = unicode(page.read().decode("gbk")).encode('utf8')
+        print isinstance(html, unicode)
         page.close()
         return html
-    except:
-        print "gGetHtml() error!"
+    except Exception, e:
+        print "gGetHtml() error!", e
         return
 
 """根据url获取文件名"""
@@ -191,14 +192,34 @@ def gDownloadAllJpg(url,savePath):
     for link in links:
         gDownloadHtmlJpg(link,savePath)
 
-"""test"""
-def test():
-    u='http://www.gs.xinhuanet.com/news/2007-01/31/content_9188207_1.htm'
-    save='./images/'
-    print 'download pic from [' + u +']'
-    print 'save to [' +save+'] ...'
-    gDownloadHtmlJpg(u,save)
-    print "download finished"
-    
-test()
+def gGetChannel(url):
+    #得到专栏名，以及相应的url
+    Nav_Channels = {}
+    if url == None:
+        pass
+    html = gGetHtml(url)
+    pattern = r"<div class=\"nav_sub\">(.*)</div>"
+    p = re.compile(pattern)
+    m = p.search(html)
+    if m == None:
+        print 'not match'
+        return
+    channels = m.group().split('|')
+    url_pattern = r"<a href=\"(#|[a-zA-z]+://[^\s]*)\">([^\x00-\\xff]*)</a>"
+    for item in channels:
+        url_match = re.search(url_pattern, item)
+        Nav_Channels[url_match.group(2)] = url_match.group(1)
+    return Nav_Channels
+
+
+
+
+if __name__ == '__main__':
+    #此网站的编码是gbk
+    url = u'http://news.163.com/photo/'
+    ChannelsMenus = gGetChannel(url)
+    for menu_item in enumerate(ChannelsMenus):
+        print '{0:-<10}> {1:50}'.format(menu_item[0], menu_item[1])
+    select = input('输入要浏览哪个目录:')
+    print select
 
