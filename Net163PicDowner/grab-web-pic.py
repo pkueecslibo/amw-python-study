@@ -212,8 +212,6 @@ def gGetChannel(url):
     return Nav_Channels
 
 
-
-
 if __name__ == '__main__':
     #此网站的编码是gbk
     url = u'http://news.163.com/photo/'
@@ -222,4 +220,5 @@ if __name__ == '__main__':
         print '{0:-<10}> {1:50}'.format(menu_item[0], menu_item[1])
     select = input('输入要浏览哪个目录:')
     print select
+    print ChannelsMenus[ChannelsMenus.keys()[select]]
 
