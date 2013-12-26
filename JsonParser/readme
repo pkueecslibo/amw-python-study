@@ -1,0 +1,42 @@
+基于Python 2.5.X封装实现一个可重用的类，具体要求为:
+    1、该类能读取json格式的数据，并以Python字典的方式读写数据
+    2、给定一个Python字典，可以更新类中数据，并以json格式输出
+    3、遵循json格式定义确保相同的同构数据源彼此转换后数据仍然一致；
+    4、支持将数据分别以json或Python的格式存储到文件并加载回来使用；
+    5、只允许使用Python内置模块(如math,sys)及标准模块string，不允许使用其他标准模块(如re)，不允许使用任何第三方开发库，包括但不限于simplejson。
+    6、独立完成此作业，并附带测试代码及一份简短的模块使用说明
+
+基本要求：
+提交python代码文件名为JsonParser.py，测试代码和文档（如果有）可以打一个包作为第二个附件提交
+JsonParser.py中包含一个class，类名为JsonParser，JsonParser类中包含以下方法：
+1、load(self, s)，读取json格式数据，输入s为一个json字符串，无返回值
+若遇到json格式错误的应该抛出异常，json中数字如果超过了python里的浮点数上限的，也可以抛出异常
+所有字符串（键和值）转化为python中的unicode类型字符串，特别注意转义符的转化
+为简便考虑，json的最外层假定只为object
+2、dump(self)，根据类中数据返回json字符串
+3、loadJson(self, f)从文件中读入json格式数据，f为文件路径，异常处理同1，文件操作失败抛出异常
+4、dumpJson(self, f)将类中的内容以json格式存入文件，文件若存在则覆盖，文件操作失败抛出异常
+5、loadDict(self, d)，读取dict中的数据，存入类中，若遇到不是字符串的key则忽略
+6、dumpDict(self)，返回一个字典，包含类中数据
+做5和6的操作时，注意不要直接引用输入参数d，也不要返回类中内置的字典的引用
+
+进阶要求：
+JsonParser类支持用[]进行赋值、读写数据的操作，类似字典
+JsonParser类包含方法update(self, d)用字典d更新类中的数据，类似于字典的update
+其实实现了进阶要求JsonParser才能成为一个真正有意义的可读写修改的json interface，否则只是一个包含很多静态方法的dict-json转换器
+
+基本测试方法：
+a1 = JsonParser()
+a2 = JsonParser()
+a3 = JsonParser()
+
+#test_json_str、test_dict
+a1.load(test_json_str)
+d1 = a1.dumpDict()
+#粗糙比较test_dict和d1
+
+a2.loadDict(d1)
+a2.dumpJson(file_path)
+a3.loadJson(file_path)
+d3 = a3.dumpDict()
+#比较d1和d3是否完全一样
