@@ -1,4 +1,4 @@
 {
-  "array" : [
-      "a", "b", "c", ["e", "g"], {"aa":"dfaf"}]
+   "number1": 123,
+   "number2": 12.3
 }
