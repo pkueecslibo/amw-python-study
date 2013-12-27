@@ -148,7 +148,25 @@ def parse_array(s, pos):
     '''
     匹配一个array s必须以‘[’开始
     '''
-    print s, pos
+
+    assert s[pos] == u'['
+    pos += 1
+
+    result = []
+    while True:
+        while s[pos] in STRIP_TAB:
+            pos += 1
+        val, pos = parse_scan(s, pos)
+        result.append(val)
+
+        while s[pos] in STRIP_TAB:
+            pos += 1
+        if s[pos] == u',':
+            pos += 1
+        if s[pos] == u']':
+            break
+    return result, pos + 1
+
 
 @print_caller
 def parse_scan(s, pos):
@@ -165,12 +183,13 @@ def parse_scan(s, pos):
         return parse_array(s, pos)
     elif s[pos] == u'{':
         return parse_object(s, pos)
-    elif s[pos] == u'f' and s[pos:pos+5] == 'false':
+    elif s[pos] == u'f' and s.startswith('false', pos,pos+5):
         return False, pos + 5
-    elif s[pos] == u't' and s.startwith('true', pos,pos+4):
+    elif s[pos] == u't' and s.startswith('true', pos,pos+4):
         return True, pos + 4
     else:
         pass
+    print '可能是数字'
 
 
 class JsonParser:
@@ -221,4 +240,4 @@ class JsonParser:
 if __name__ == '__main__':
     print 'main'
     a = JsonParser()
-    a.load(open('test2.json').read())
+    a.load(open('test3.json').read())
