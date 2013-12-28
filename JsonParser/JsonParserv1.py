@@ -319,55 +319,58 @@ def parse_scan(s, pos):
 
 '''
 
-def print_val(v, indent = 0):
+def print_val(buf, v, indent = 0):
     if isinstance(v, (list)):
-        print_list(v, indent)
+        print_list(buf, v, indent)
     elif isinstance(v, (dict)):
-        print_dict(v, indent)
+        print_dict(buf, v, indent)
     elif isinstance(v, (int, float)):
-        print_num(v, indent)
+        print_num(buf, v, indent)
     elif isinstance(v, (str, unicode)):
-        print_str(v, indent)
+        print_str(buf, v, indent)
     elif isinstance(v, (bool)):
-        print_bool(v, indent)
+        print_bool(buf, v, indent)
+    elif type(v) == type(None):
+        print_null(buf, v, indent)
     else:
-        print v
+        print type(v)
+        raise JsonInvalidException(u'不支持的类型')
 
-def print_bool(v, indent=0):
-    print v,
+def print_null(buf, v, indent=0):
+    buf.append('%s' % v)
 
-def print_str(v, indent=0):
-    print u'"%s"' % v,
+def print_bool(buf, v, indent=0):
+    buf.append('%s' % v)
 
-def print_num(v, indent=0):
-    print v,
+def print_str(buf,v, indent=0):
+    buf.append(u'"%s"' % v)
 
-def print_list(l, indent = 0):
+def print_num(buf, v, indent=0):
+    buf.append('%s' % v)
+
+def print_list(buf, l, indent = 0):
     cnt = 0
-    print u'['
+    buf.append(u'[\r\n')
     for item in l:
         cnt += 1
-        print u' ' * (indent+1),
-        print_val(item, 2)
+        buf.append(u' ' * (indent+1))
+        print_val(buf, item, 2)
         if cnt != len(l):
-            print u','
-        else:
-            print
-    print u' ' * indent, u']',
+            buf.append(u',\r\n')
+
+    buf.append(u'\r\n%s%s' % (u' ' * indent, u']'))
 
 
-def print_dict(d, indent = 0):
+def print_dict(buf, d, indent = 0):
     cnt = 0
-    print u'{'
+    buf.append(u'{\r\n')
     for k, v in d.iteritems():
         cnt += 1
-        print u' ' * (indent+1), '"%s":' % k,
-        print_val(v, 2),
+        buf.append(u'%s %s:' % (u' ' * (indent+1), '"%s":' % k))
+        print_val(buf, v, 2),
         if cnt != len(d):
-            print u','
-        else:
-            print
-    print u' ' * indent, u'}',
+            buf.append(u',\r\n')
+    buf.append(u'\r\n%s%s' % (u' ' * indent, u'}'))
 
 
 
@@ -465,7 +468,9 @@ if __name__ == '__main__':
     try:
         d1 = a.load(open(testfile).read())
         print d1
-        print_dict(d1)
+        buf = []
+        print_dict(buf, d1)
+        print ''.join(buf)
         print
     except JsonUnexpectCharException as e:
         err( u'捕获异常: %s' % unicode(e))
