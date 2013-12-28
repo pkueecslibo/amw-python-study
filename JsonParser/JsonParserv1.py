@@ -1,6 +1,8 @@
 #-*-coding:utf-8-*-
 #!/usr/bin/python
 
+import simplejson as json
+
 '''
 JSON    Python
 object  dict
@@ -27,14 +29,63 @@ ESCAPE_TAB = {
 
 STRIP_TAB = [u' ', u'\r', u'\n']
 
+##############################################################
+'''
+工具函数
+'''
+
+HEADER = '\033[95m'
+OKBLUE = '\033[94m'
+OKGREEN = '\033[92m'
+WARNING = '\033[93m'
+FAIL = '\033[91m'
+ENDC = '\033[0m'
+BOLD = "\033[1m"
+
+def disable():
+    HEADER = ''
+    OKBLUE = ''
+    OKGREEN = ''
+    WARNING = ''
+    FAIL = ''
+    ENDC = ''
+
+def infog( msg):
+    print OKGREEN + msg + ENDC
+
+def info( msg):
+    print OKBLUE + msg + ENDC
+
+def warn( msg):
+    print WARNING + msg + ENDC
+
+def err( msg):
+    print FAIL + msg + ENDC
 
 def print_caller(func):
     def func_wrap(*args, **kwargs):
-        print '\033[1;31;40m'
-        print '===> %s' % func.func_name
-        print '\033[0m'
+        infog('===> %s' % func.func_name)
         return func(*args, **kwargs)
     return func_wrap;
+
+##############################################################
+'''
+主要的解析函数
+'''
+
+def _skip_blank(s, pos):
+    try:
+        while s[pos] in STRIP_TAB:
+            pos += 1
+    except IndexError:
+        raise JsonEndInvalidException(u'字符')
+    return pos
+
+def _is_digit(s, pos):
+    if s[pos] >= u'0' and s[pos] <= u'9':
+        return True
+    return False
+
 
 @print_caller
 def parse_string(s, pos):
@@ -42,53 +93,57 @@ def parse_string(s, pos):
     匹配一个string s必须以‘"’开始
     返回匹配的字符串和与起始'"'匹配的后一位
     '''
-    print type(s)
-
-    while s[pos] in STRIP_TAB:
-        pos += 1
+    #跳过空白
+    pos = _skip_blank(s, pos)
 
     assert s[pos] == u'"'
 
     result = []
     esc = False
 
-    pos += 1
-    while True:
-        print pos
-        if esc == False and s[pos] == u'"':
-            break
-        if s[pos] == u'\\':
-            esc  =True
-        elif esc == True and s[pos] in ESCAPE_TAB.keys():
-            result.append(ESCAPE_TAB[s[pos]])
-            esc = False
-        else:
-            result.append(s[pos])
+    try:
         pos += 1
+        while True:
+            if esc == False and s[pos] == u'"':
+                break
+            if s[pos] == u'\\':
+                esc  =True
+            elif esc == True and s[pos] in ESCAPE_TAB.keys():
+                result.append(ESCAPE_TAB[s[pos]])
+                esc = False
+            else:
+                result.append(s[pos])
+            pos += 1
+    except IndexError:
+        raise JsonEndInvalidException()
     return ''.join(result), pos+1
 
 def parse_int(s, pos):
     '''
-    匹配一个int s必须以‘{’开始
+    匹配一个int
     '''
     pass
 
 def parse_float(s, pos):
     '''
-    匹配一个float s必须以‘{’开始
+    匹配一个float
     '''
     pass
 
 @print_caller
 def parse_key(s, pos):
-
+    '''
+    匹配字典项的键
+    '''
     val, pos = parse_scan(s, pos)
 
     return val, pos
 
 @print_caller
 def parse_val(s, pos):
-
+    '''
+    匹配字典项的值
+    '''
     val, pos = parse_scan(s, pos)
     return val, pos
 
@@ -98,8 +153,8 @@ def parse_object(s, pos):
     匹配一个dict s必须以‘{’开始
     '''
 
-    while s[pos] in STRIP_TAB:
-        pos += 1
+    #除掉空白
+    pos = _skip_blank(s, pos)
 
     assert s[pos] == u'{'
 
@@ -108,26 +163,31 @@ def parse_object(s, pos):
 
     while True:
         key, pos = parse_key(s, pos)
-        print key, pos
+        info(u'\tkey: %s' % key)
 
-        #除掉':'号
-        while s[pos] != u':':
-            pos += 1
-        pos += 1
+        #除掉空白
+        pos = _skip_blank(s, pos)
+        #必须是':'号
+        if s[pos] != u':':
+            raise JsonUnexpectCharException(u':', s[pos]);
+        pos += 1    #跳过':'
 
         val, pos = parse_val(s, pos)
-        print val, pos
+        info(u'\tval: %s' % (val))
 
-        d[key] = val
+        d[key] = val    #加入字典
+        print d
 
-        while s[pos] in STRIP_TAB:
-            pos += 1
+        #跳过空白
+        pos = _skip_blank(s, pos)
 
+        #如果出现的',', 说明还有键值对
         if s[pos] == u',':
             pos += 1
-
-        while s[pos] in STRIP_TAB:
-            pos += 1
+        else:
+            #意味着字典结束，下一个字符必须是'}'
+            if s[pos] != u'}':
+                raise JsonUnexpectCharException(u'}', s[pos])
 
         print u'======================== (%s)' % s[pos]
 
@@ -145,19 +205,21 @@ def parse_array(s, pos):
     '''
     匹配一个array s必须以‘[’开始
     '''
-
+    #跳过空白
+    pos = _skip_blank(s, pos)
     assert s[pos] == u'['
     pos += 1
 
     result = []
     while True:
-        while s[pos] in STRIP_TAB:
-            pos += 1
+        #跳过空白
+        pos = _skip_blank(s, pos)
+
         val, pos = parse_scan(s, pos)
+        info('\tval: %s' % val)
         result.append(val)
 
-        while s[pos] in STRIP_TAB:
-            pos += 1
+        pos = _skip_blank(s, pos)
         if s[pos] == u',':
             pos += 1
         if s[pos] == u']':
@@ -166,10 +228,12 @@ def parse_array(s, pos):
 
 
 def parse_number(s, pos):
+    '''
+    匹配一个数字串
+    '''
     neg = False
 
-    while s[pos] in STRIP_TAB:
-        pos += 1
+    pos = _skip_blank(s, pos)
 
     if s[pos] == u'-':
         neg = True
@@ -180,7 +244,7 @@ def parse_number(s, pos):
 
     result = 0
     #整数部分
-    while s[pos] in ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']:
+    while _is_digit(s, pos):
         result *= 10
         result += eval(s[pos])
         pos += 1
@@ -194,7 +258,7 @@ def parse_number(s, pos):
         result = -result
 
     base = -1
-    while s[pos] in ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']:
+    while _is_digit(s, pos):
         tmp = eval(s[pos]) * (10 ** base)
         result += tmp
         base -= 1
@@ -211,7 +275,7 @@ def parse_number(s, pos):
             exp_neg = True
             pos += 1
 
-        while s[pos] in ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']:
+        while _is_digit(s, pos):
             exp_val *= 10
             exp_val += eval(s[pos])
             pos += 1
@@ -219,23 +283,13 @@ def parse_number(s, pos):
             exp_val = -exp
         result = base * (10 ** exp_val)
 
-    return result, pos+1
-
-
-
-
-
-
-
+    print type(result), s[pos]
+    return result, pos
 
 @print_caller
 def parse_scan(s, pos):
-    pass
-
-    while s[pos] in STRIP_TAB:
-        pos += 1
-
-    print u'第一个字符:(%s)' % s[pos]
+    #跳过空白
+    pos = _skip_blank(s, pos)
 
     if s[pos] == u'"':
         return parse_string(s, pos)
@@ -247,10 +301,113 @@ def parse_scan(s, pos):
         return False, pos + 5
     elif s[pos] == u't' and s.startswith('true', pos,pos+4):
         return True, pos + 4
+    elif s[pos] == u'n' and s.startswith('null', pos, pos + 4):
+        return None, pos + 4
     else:
         pass
-    print '可能是数字'
-    return parse_number(s, pos)
+
+    if _is_digit(s, pos) or s[pos] in [u'-', u'+']:
+        print '可能是数字'
+        num, pos = parse_number(s, pos)
+        return num, pos
+
+    raise JsonUnexpectCharException(u'(", [, {, false, true, null, number)', u'(%s)' % s[pos])
+
+##############################################################
+'''
+打印
+
+'''
+
+def print_val(v, indent = 0):
+    if isinstance(v, (list)):
+        print_list(v, indent)
+    elif isinstance(v, (dict)):
+        print_dict(v, indent)
+    elif isinstance(v, (int, float)):
+        print_num(v, indent)
+    elif isinstance(v, (str, unicode)):
+        print_str(v, indent)
+    elif isinstance(v, (bool)):
+        print_bool(v, indent)
+    else:
+        print v
+
+def print_bool(v, indent=0):
+    print v,
+
+def print_str(v, indent=0):
+    print u'"%s"' % v,
+
+def print_num(v, indent=0):
+    print v,
+
+def print_list(l, indent = 0):
+    cnt = 0
+    print u'['
+    for item in l:
+        cnt += 1
+        print u' ' * (indent+1),
+        print_val(item, 2)
+        if cnt != len(l):
+            print u','
+        else:
+            print
+    print u' ' * indent, u']',
+
+
+def print_dict(d, indent = 0):
+    cnt = 0
+    print u'{'
+    for k, v in d.iteritems():
+        cnt += 1
+        print u' ' * (indent+1), '"%s":' % k,
+        print_val(v, 2),
+        if cnt != len(d):
+            print u','
+        else:
+            print
+    print u' ' * indent, u'}',
+
+
+
+
+##############################################################
+##############################################################
+'''
+各种异常
+'''
+class JsonInvalidException(Exception):
+    '''
+    Json格式错误
+    '''
+
+class JsonNumberInvalidException(JsonInvalidException):
+    '''
+    数字格式不正确
+    '''
+    def __init__(self, s_number):
+        JsonInvalidException.__init__(self,
+                u"错误的数字： %s" % s_number)
+
+
+class JsonUnexpectCharException(JsonInvalidException):
+    '''
+    遇到为期望的字符
+    '''
+    def __init__(self, exp_ch, unexp_ch):
+        JsonInvalidException.__init__(self,
+                u"期望'%s' 得到的却是'%s'" % (exp_ch, unexp_ch))
+
+class JsonEndInvalidException(JsonInvalidException):
+    '''
+    非法结尾
+    '''
+    def __init__(self, s_expect):
+        JsonEndInvalidException.__init__(self,
+                u"希望遇到'%s' 但是遇到字符串尾" % s_expect)
+
+##############################################################
 
 
 class JsonParser:
@@ -266,7 +423,7 @@ class JsonParser:
         '''
         s = s.decode('utf-8')
         self.dict, pos  = parse_object(s, 0)
-        print self.dict
+        return self.dict
 
     def dump(self):
         '''
@@ -300,5 +457,32 @@ class JsonParser:
 
 if __name__ == '__main__':
     print 'main'
+
+    testfile = u'test3.json'
+    print open(testfile).read()
+
     a = JsonParser()
-    a.load(open('test3.json').read())
+    try:
+        d1 = a.load(open(testfile).read())
+        print d1
+        print_dict(d1)
+        print
+    except JsonUnexpectCharException as e:
+        err( u'捕获异常: %s' % unicode(e))
+    except JsonNumberInvalidException as e:
+        err( u'捕获异常: %s' % unicode(e))
+    except JsonEndInvalidException as e:
+        err( u'捕获异常: %s' % unicode(e))
+    except JsonInvalidException as e:
+        err( u'捕获异常: %s' % unicode(e))
+
+    '''
+    simplejson对比测试
+    '''
+    print '#' * 40
+    print 'simplejson测试'
+
+    d2 = json.loads(open(testfile).read())
+    print d2
+
+    infog(u'd1 == d2 : %s' % (d1 == d2))
