@@ -366,7 +366,7 @@ def print_dict(buf, d, indent = 0):
     buf.append(u'{\r\n')
     for k, v in d.iteritems():
         cnt += 1
-        buf.append(u'%s %s:' % (u' ' * (indent+1), '"%s":' % k))
+        buf.append(u'%s"%s" : ' % (u' ' * (indent+1), k))
         print_val(buf, v, 2),
         if cnt != len(d):
             buf.append(u',\r\n')
