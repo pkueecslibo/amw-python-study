@@ -282,8 +282,6 @@ def parse_number(s, pos):
         if exp_neg:
             exp_val = -exp
         result = base * (10 ** exp_val)
-
-    print type(result), s[pos]
     return result, pos
 
 @print_caller
@@ -412,10 +410,73 @@ class JsonEndInvalidException(JsonInvalidException):
 
 ##############################################################
 
+'''
+深度拷贝
+'''
+def deepcopy(v):
+    #print type(v)
+    if isinstance(v, (list)):
+        return deepcopy_list(v)
+    elif isinstance(v, (dict)):
+        return deepcopy_dict(v)
+    elif isinstance(v, (int, float)):
+        return deepcopy_number(v)
+    elif isinstance(v, (str, unicode)):
+        return deepcopy_unicode(v)
+    elif isinstance(v, (bool)):
+        return deepcopy_bool(v)
+    elif type(v) == type(None):
+        return deepcopy_null()
+    else:
+        print type(v)
+        raise JsonInvalidException(u'不支持的类型')
+
+
+@print_caller
+def deepcopy_dict(d):
+    '''
+    字典深度拷贝
+    '''
+    #print type(d)
+    assert type(d) == type({})
+
+    ret = {}
+    for k, v in d.iteritems():
+        ret[deepcopy(k)] = deepcopy(v)
+    return ret
+
+
+def deepcopy_list(l):
+    assert isinstance(l, list)
+
+    ret = []
+    for item in l:
+        ret.append(deepcopy(item))
+    return ret
+
+def deepcopy_unicode(s):
+    assert isinstance(s, unicode)
+
+    return ''.join(s[:])
+
+def deepcopy_number(n):
+    assert isinstance(n, (int, float))
+
+    return n
+
+def deepcopy_bool(b):
+    assert type(s) in [type(bool)]
+
+    return b
+
+def deepcopy_null():
+    return None
+
+##############################################################
 
 class JsonParser:
     def __init__(self):
-        self.dict = {}
+        self.dict = None
 
     def load(self, s):
         '''
@@ -426,7 +487,6 @@ class JsonParser:
         '''
         s = s.decode('utf-8')
         self.dict, pos  = parse_object(s, 0)
-        return self.dict
 
     def dump(self):
         '''
@@ -452,26 +512,27 @@ class JsonParser:
         '''
         pass
 
+    @print_caller
     def dumpDict(self):
         '''
         返回一个字典
         '''
-        pass
+        return deepcopy(self.dict)
 
 if __name__ == '__main__':
     print 'main'
 
-    testfile = u'test3.json'
-    print open(testfile).read()
+    jsonfile = u'test3.json'
+    print open(jsonfile).read()
 
     a = JsonParser()
     try:
-        d1 = a.load(open(testfile).read())
+        a.load(open(jsonfile).read())
+        d1 = a.dumpDict()
         print d1
         buf = []
         print_dict(buf, d1)
-        print ''.join(buf)
-        print
+        print ''.join(buf), u'\r\n'
     except JsonUnexpectCharException as e:
         err( u'捕获异常: %s' % unicode(e))
     except JsonNumberInvalidException as e:
@@ -487,7 +548,7 @@ if __name__ == '__main__':
     print '#' * 40
     print 'simplejson测试'
 
-    d2 = json.loads(open(testfile).read())
+    d2 = json.loads(open(jsonfile).read())
     print d2
 
     infog(u'd1 == d2 : %s' % (d1 == d2))
