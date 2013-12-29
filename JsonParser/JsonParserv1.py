@@ -27,7 +27,9 @@ ESCAPE_TAB = {
         u'\t': u'\\t',
         }
 
-STRIP_TAB = [u' ', u'\r', u'\n']
+STRIP_TAB = [u' ', u'\t', u'\r', u'\n']
+
+CLRF = u'\r\n'
 
 ##############################################################
 '''
@@ -73,13 +75,23 @@ def print_caller(func):
 主要的解析函数
 '''
 
+_lineno = 0
+
 def _skip_blank(s, pos):
     try:
         while s[pos] in STRIP_TAB:
+            _meet_clrf(s, pos)
             pos += 1
     except IndexError:
         raise JsonEndInvalidException(u'字符')
     return pos
+
+def _meet_clrf(s, pos):
+    global _lineno
+    if s.startswith(CLRF, pos, pos+2):
+        _lineno += 1
+        info(u'行号: %s' % _lineno)
+
 
 def _is_digit(s, pos):
     if s[pos] >= u'0' and s[pos] <= u'9':
@@ -432,7 +444,6 @@ def deepcopy(v):
         raise JsonInvalidException(u'不支持的类型')
 
 
-@print_caller
 def deepcopy_dict(d):
     '''
     字典深度拷贝
@@ -498,7 +509,7 @@ class JsonParser:
         '''
         从文件中读入json格式数据，f为文件路径，格式错误抛出异常
         '''
-        pass
+        self.load(open(f).read().decode('utf-8'))
 
     def dumpJson(self, f):
         '''
@@ -550,5 +561,6 @@ if __name__ == '__main__':
 
     d2 = json.loads(open(jsonfile).read())
     print d2
+    print json.dumps(open(jsonfile).read())
 
     infog(u'd1 == d2 : %s' % (d1 == d2))
