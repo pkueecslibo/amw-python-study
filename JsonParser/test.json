@@ -12,5 +12,6 @@
     "c": "d",
     "e": "f"
   },
-  "string": "Hello World"
+  "string": "Hello World",
+  "测\"试键": "测试值"
 }
