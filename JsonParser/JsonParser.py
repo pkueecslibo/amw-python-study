@@ -17,6 +17,17 @@ null    None
 
 '''
 
+ESC_CONTROL_CHAR = {
+        u'"':   u'\\"',
+        u'\\':   u'\\',
+        u'/':   u'\\/',
+        u'b':   u'\b',
+        u'f':   u'\f',
+        u'n':   u'\n',
+        u'r':   u'\r',
+        u't':   u'\t',
+        }
+
 ESCAPE_TAB = {
         u'"': u'\\"',
         u'\\': u'\\\\',
@@ -28,9 +39,18 @@ ESCAPE_TAB = {
         u'\t': u'\\t',
         }
 
+UNICODE_ESCAPE_CHAR = u'u'
+
 STRIP_TAB = [u' ', u'\t', u'\r', u'\n']
 
 CLRF = u'\r\n'
+
+#十进制
+DEC_DIGTAL = u'0123456789'
+#十六进制
+HEX_DIGTAL = u'0123456789abcdef'
+
+
 
 ##############################################################
 '''
@@ -53,7 +73,7 @@ def disable():
     FAIL = ''
     ENDC = ''
 
-_debug = False
+_debug = True
 
 def infog( msg):
     if _debug:
@@ -100,10 +120,18 @@ def _meet_clrf(s, pos):
         info(u'行号: %s' % _lineno)
 
 
-def _is_digit(s, pos):
-    if s[pos] >= u'0' and s[pos] <= u'9':
-        return True
-    return False
+def _is_dec_digit(s, pos):
+    return True if s[pos] in DEC_DIGTAL else False
+
+def _is_hex_digit(s, pos):
+    return True if s[pos] in HEX_DIGTAL else False
+
+def _is_hex_str(s):
+    if len(s) == 4:
+        for c in s:
+            if c not in HEX_DIGTAL:
+                return False
+    return True
 
 
 @print_caller
@@ -123,13 +151,27 @@ def parse_string(s, pos):
     try:
         pos += 1
         while True:
+            print s[pos]
             if esc == False and s[pos] == u'"':
                 break
-            if s[pos] == u'\\':
-                esc  =True
-            elif esc == True and s[pos] in ESCAPE_TAB.keys():
-                result.append(ESCAPE_TAB[s[pos]])
+            if esc == True:
+                if s[pos].upper() in ESC_CONTROL_CHAR.keys():
+                    result.append(ESC_CONTROL_CHAR[s[pos]])
+                elif s[pos] == UNICODE_ESCAPE_CHAR:
+                    pos += 1
+                    hex_s = s[pos:pos+4]
+                    pos += 3
+                    if not _is_hex_str(hex_s):
+                            raise Exception(u'不是正确的十六进制')
+                    c = unichr(int(hex_s, 16))
+                    print c
+                    result.append(c)
+                else:
+                    raise Exception(u'parse_string')
+
                 esc = False
+            elif s[pos] == u'\\':
+                esc  =True
             else:
                 result.append(s[pos])
             pos += 1
@@ -260,7 +302,7 @@ def parse_number(s, pos):
 
     result = 0
     #整数部分
-    while _is_digit(s, pos):
+    while _is_dec_digit(s, pos):
         result *= 10
         result += eval(s[pos])
         pos += 1
@@ -274,7 +316,7 @@ def parse_number(s, pos):
         result = -result
 
     base = -1
-    while _is_digit(s, pos):
+    while _is_dec_digit(s, pos):
         tmp = eval(s[pos]) * (10 ** base)
         result += tmp
         base -= 1
@@ -291,7 +333,7 @@ def parse_number(s, pos):
             exp_neg = True
             pos += 1
 
-        while _is_digit(s, pos):
+        while _is_dec_digit(s, pos):
             exp_val *= 10
             exp_val += eval(s[pos])
             pos += 1
@@ -320,7 +362,7 @@ def parse_scan(s, pos):
     else:
         pass
 
-    if _is_digit(s, pos) or s[pos] in [u'-', u'+']:
+    if _is_dec_digit(s, pos) or s[pos] in [u'-', u'+']:
         #print '可能是数字'
         num, pos = parse_number(s, pos)
         return num, pos
@@ -494,6 +536,21 @@ def _update_list(l, rl):
 
 ##############################################################
 
+class object(dict):
+    '''
+    定义Json中的object对象
+    '''
+    def __init__(self):
+        dict.__init__(self)
+
+class array(list):
+    '''
+    定义Json中的array对象
+    '''
+    pass
+
+##############################################################
+
 class JsonParser:
     def __init__(self):
         self.dict = None
@@ -517,18 +574,19 @@ class JsonParser:
         dump_val(buf, self.dict)
         return ''.join(buf)
 
+    @print_caller
     def loadJson(self, f):
         '''
         从文件中读入json格式数据，f为文件路径，格式错误抛出异常
         '''
         try:
             fp = open(f, 'r')
-            self.load(fp.read().decode('utf-8'))
-        except Exception:
-            raise Exception()
+            #print fp.read().decode(u'utf-8')
+            self.load(fp.read().decode(u'utf-8'))
         finally:
             fp.close()
 
+    @print_caller
     def dumpJson(self, f):
         '''
         将类中的内容以json格式存入文件中，文件若存在则覆盖，文件操作失败抛出异常
@@ -539,9 +597,9 @@ class JsonParser:
 
         try:
             fp = open(f, 'w')
+            fp.seek(0)
+            fp.truncate()
             fp.write(u''.join(buf).encode('utf_8'))
-        except Exception:
-            raise Exception()
         finally:
             fp.close()
 
@@ -549,14 +607,36 @@ class JsonParser:
         '''
         读取dict中的数据，存入类中，若遇到不是字符串的key则忽略
         '''
-        self.dict = update_val(self.dict, d)
+        _d = deepcopy(d)
+        if self.dict:
+            self.dict.udpate(_d)
+        else:
+            self.dict = _d
 
     @print_caller
     def dumpDict(self):
         '''
         返回一个字典
         '''
+        print self.dict
         return deepcopy(self.dict)
+
+    #高级功能扩展
+    def __getitem__(self, key):
+        return self.dict.__getitem__(key)
+
+    def __setitem__(self, key, val):
+        return self.dict.__setitem__(key, val)
+
+    def __delitem__(self, key):
+        return self.dict.__delitem__(key)
+
+    def __getslice__(self, start, end):
+        return self.dict.__getslice__(start, end)
+
+    def update(self, d):
+        self.dict.update(d)
+
 
 if __name__ == '__main__':
     try:
@@ -564,8 +644,9 @@ if __name__ == '__main__':
         a2 = JsonParser()
         a3 = JsonParser()
 
-        jsonfile = u'test3.json'
+        jsonfile = u'test.json'
         test_json_file = open(jsonfile).read()
+        print test_json_file
 
         a1.load(test_json_file)
         d1 = a1.dumpDict()
@@ -588,4 +669,6 @@ if __name__ == '__main__':
     except JsonEndInvalidException as e:
         err( u'捕获异常: %s' % unicode(e))
     except JsonInvalidException as e:
+        err( u'捕获异常: %s' % unicode(e))
+    except Exception as e:
         err( u'捕获异常: %s' % unicode(e))
