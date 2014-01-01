@@ -1,9 +1,6 @@
 #-*-coding:utf-8-*-
 #!/usr/bin/python
 
-import simplejson as json
-import FormatPrint
-
 '''
 JSON    Python
 object  dict
@@ -18,9 +15,9 @@ null    None
 '''
 
 ESC_CONTROL_CHAR = {
-        u'"':   u'\\"',
+        u'"':   u'"',
         u'\\':   u'\\',
-        u'/':   u'\\/',
+        u'/':   u'/',
         u'b':   u'\b',
         u'f':   u'\f',
         u'n':   u'\n',
@@ -28,7 +25,7 @@ ESC_CONTROL_CHAR = {
         u't':   u'\t',
         }
 
-ESCAPE_TAB = {
+RE_ESC_CONTROL_CHAR = {
         u'"': u'\\"',
         u'\\': u'\\\\',
         u'/': u'\\/',
@@ -57,23 +54,23 @@ HEX_DIGTAL = u'0123456789abcdef'
 工具函数
 '''
 
-HEADER = '\033[95m'
-OKBLUE = '\033[94m'
-OKGREEN = '\033[92m'
-WARNING = '\033[93m'
-FAIL = '\033[91m'
-ENDC = '\033[0m'
-BOLD = "\033[1m"
+HEADER = u'\033[95m'
+OKBLUE = u'\033[94m'
+OKGREEN = u'\033[92m'
+WARNING = u'\033[93m'
+FAIL = u'\033[91m'
+ENDC = u'\033[0m'
+BOLD = u"\033[1m"
 
 def disable():
-    HEADER = ''
-    OKBLUE = ''
-    OKGREEN = ''
-    WARNING = ''
-    FAIL = ''
-    ENDC = ''
+    HEADER = u''
+    OKBLUE = u''
+    OKGREEN = u''
+    WARNING = u''
+    FAIL = u''
+    ENDC = u''
 
-_debug = True
+_debug = False
 
 def infog( msg):
     if _debug:
@@ -93,7 +90,7 @@ def err( msg):
 
 def print_caller(func):
     def func_wrap(*args, **kwargs):
-        infog('===> %s' % func.func_name)
+        infog(u'===> %s' % func.func_name)
         return func(*args, **kwargs)
     return func_wrap;
 
@@ -149,13 +146,12 @@ def parse_string(s, pos):
     esc = False
 
     try:
-        pos += 1
         while True:
-            print s[pos]
+            pos += 1
             if esc == False and s[pos] == u'"':
                 break
             if esc == True:
-                if s[pos].upper() in ESC_CONTROL_CHAR.keys():
+                if s[pos] in ESC_CONTROL_CHAR.keys():
                     result.append(ESC_CONTROL_CHAR[s[pos]])
                 elif s[pos] == UNICODE_ESCAPE_CHAR:
                     pos += 1
@@ -164,17 +160,15 @@ def parse_string(s, pos):
                     if not _is_hex_str(hex_s):
                             raise Exception(u'不是正确的十六进制')
                     c = unichr(int(hex_s, 16))
-                    print c
                     result.append(c)
                 else:
-                    raise Exception(u'parse_string')
+                    raise Exception(u'不能识别的转义控制符')
 
                 esc = False
             elif s[pos] == u'\\':
                 esc  =True
             else:
                 result.append(s[pos])
-            pos += 1
     except IndexError:
         raise JsonEndInvalidException()
     return ''.join(result), pos+1
@@ -385,7 +379,7 @@ def dump_val(buf, v):
     elif isinstance(v, (int, float)):
         dump_num(buf, v)
     elif isinstance(v, (str, unicode)):
-        dump_str(buf,v)
+        dump_string(buf,v)
     elif type(v) == type(None):
         dump_null(buf, v)
     else:
@@ -398,8 +392,15 @@ def dump_null(buf, v):
 def dump_bool(buf, v):
     buf.append(u'true' if v else u'false')
 
-def dump_str(buf,v):
-    buf.append(u'"%s"' % v)
+@print_caller
+def dump_string(buf,v):
+    s = []
+    for c in v:
+        if c in RE_ESC_CONTROL_CHAR.keys():
+            s.append(RE_ESC_CONTROL_CHAR[c])
+        else:
+            s.append(u'%c' % c)
+    buf.append(u'"%s"' % ''.join(s))
 
 def dump_num(buf, v):
     buf.append('%s' % v)
@@ -421,7 +422,8 @@ def dump_dict(buf, d):
     buf.append(u'{')
     for k, v in d.iteritems():
         cnt += 1
-        buf.append(u'"%s" : ' % (k))
+        dump_val(buf, k)
+        buf.append(u':')
         dump_val(buf, v),
         if cnt != len(d):
             buf.append(u', ')
@@ -555,6 +557,7 @@ class JsonParser:
     def __init__(self):
         self.dict = None
 
+    @print_caller
     def load(self, s):
         '''
         读取json格式数据，输入s为一个json字符串，无返回值
@@ -562,7 +565,8 @@ class JsonParser:
         所有字符串（键和值）转化为python中的unicode类型字符串，特别注意转义符的转化
         为简便考虑，json的最外层假定只为 object
         '''
-        s = s.decode('utf-8')
+        if type(s) != unicode:
+            s = s.decode('utf-8')
         self.dict, pos  = parse_object(s, 0)
 
     @print_caller
@@ -581,8 +585,8 @@ class JsonParser:
         '''
         try:
             fp = open(f, 'r')
-            #print fp.read().decode(u'utf-8')
             self.load(fp.read().decode(u'utf-8'))
+            #self.load(fp.read())
         finally:
             fp.close()
 
@@ -592,8 +596,7 @@ class JsonParser:
         将类中的内容以json格式存入文件中，文件若存在则覆盖，文件操作失败抛出异常
         '''
         buf = []
-        #格式化打印，可读性更高
-        FormatPrint.print_dict(buf, self.dict)
+        dump_val(buf, self.dict)
 
         try:
             fp = open(f, 'w')
@@ -618,7 +621,6 @@ class JsonParser:
         '''
         返回一个字典
         '''
-        print self.dict
         return deepcopy(self.dict)
 
     #高级功能扩展
@@ -644,9 +646,8 @@ if __name__ == '__main__':
         a2 = JsonParser()
         a3 = JsonParser()
 
-        jsonfile = u'test.json'
+        jsonfile = u'test3.json'
         test_json_file = open(jsonfile).read()
-        print test_json_file
 
         a1.load(test_json_file)
         d1 = a1.dumpDict()
