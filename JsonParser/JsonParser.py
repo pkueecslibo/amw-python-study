@@ -99,6 +99,8 @@ def print_caller(func):
 主要的解析函数
 '''
 
+#行号，代表当前正在处理的行号， 用于当文件格式有误时，错误位置说明
+#在跳过\r\n时加以判断
 _lineno = 0
 
 def _skip_blank(s, pos):
@@ -111,6 +113,9 @@ def _skip_blank(s, pos):
     return pos
 
 def _meet_clrf(s, pos):
+    '''
+    如果遇到CLRF字符，则行数+1
+    '''
     global _lineno
     if s.startswith(CLRF, pos, pos+2):
         _lineno += 1
@@ -394,12 +399,20 @@ def dump_bool(buf, v):
 
 @print_caller
 def dump_string(buf,v):
+    '''
+    将string转化成Json格式的字符串
+    汉字
+    '''
     s = []
     for c in v:
         if c in RE_ESC_CONTROL_CHAR.keys():
             s.append(RE_ESC_CONTROL_CHAR[c])
-        else:
-            s.append(u'%c' % c)
+        elif c >= 32 and c <= 126:#可打印的ascii字符
+            s.append(c)
+        elif c >= u'\u4e00' and c <= u'\u9fa5':#汉字
+            s.append(u'\\u%x' % ord(c))
+        else:#其他
+            s.append(c)
     buf.append(u'"%s"' % ''.join(s))
 
 def dump_num(buf, v):
