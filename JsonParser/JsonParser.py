@@ -131,7 +131,7 @@ def _is_hex_digit(s, pos):
 def _is_hex_str(s):
     if len(s) == 4:
         for c in s:
-            if c not in HEX_DIGTAL:
+            if c.lower() not in HEX_DIGTAL:
                 return False
     return True
 
@@ -222,8 +222,12 @@ def parse_object(s, pos):
     pos += 1
 
     while True:
+        #跳过空白
+        pos = _skip_blank(s, pos)
+        if s[pos] == u'}':
+            break
         key, pos = parse_key(s, pos)
-        info(u'\tkey: %s' % key)
+        info(u'\tkey: [%s]' % key)
 
         #除掉空白
         pos = _skip_blank(s, pos)
@@ -233,7 +237,7 @@ def parse_object(s, pos):
         pos += 1    #跳过':'
 
         val, pos = parse_val(s, pos)
-        info(u'\tval: %s' % (val))
+        info(u'\tval: [%s]' % (val))
 
         d[key] = val    #加入字典
 
@@ -265,15 +269,18 @@ def parse_array(s, pos):
     #跳过空白
     pos = _skip_blank(s, pos)
     assert s[pos] == u'['
-    pos += 1
 
     result = []
+    pos += 1
     while True:
         #跳过空白
         pos = _skip_blank(s, pos)
 
+        if s[pos] == u']':
+            break;
+
         val, pos = parse_scan(s, pos)
-        info('\tval: %s' % val)
+        info('\tval: [%s]' % val)
         result.append(val)
 
         pos = _skip_blank(s, pos)
@@ -311,17 +318,15 @@ def parse_number(s, pos):
         pos += 1
         result = float(result)
 
-    if neg:
-        result = -result
-
-    base = -1
+    base = 10.0
     while _is_dec_digit(s, pos):
-        tmp = eval(s[pos]) * (10 ** base)
+        tmp = eval(s[pos]) / base
         result += tmp
-        base -= 1
+        base *= 10
         pos += 1
 
     if s[pos] in [u'e', u'E']:
+        result = float(result)
         pos += 1
         exp_val = 0
         exp_neg = False
@@ -337,8 +342,10 @@ def parse_number(s, pos):
             exp_val += eval(s[pos])
             pos += 1
         if exp_neg:
-            exp_val = -exp
-        result = base * (10 ** exp_val)
+            exp_val = -exp_val
+        result = result * (10 ** exp_val)
+    if neg == True:
+        result = -result
     return result, pos
 
 @print_caller
@@ -383,6 +390,8 @@ def dump_val(buf, v):
         dump_bool(buf, v)
     elif isinstance(v, (int, float)):
         dump_num(buf, v)
+    elif isinstance(v, (long)):
+        dump_num_1(buf, v)
     elif isinstance(v, (str, unicode)):
         dump_string(buf,v)
     elif type(v) == type(None):
@@ -417,6 +426,9 @@ def dump_string(buf,v):
 
 def dump_num(buf, v):
     buf.append('%s' % v)
+
+def dump_num_1(buf, v):
+    buf.append('%e' % v)
 
 def dump_list(buf, l):
     cnt = 0
@@ -491,7 +503,7 @@ def deepcopy(v):
         return deepcopy_list(v)
     elif isinstance(v, (dict)):
         return deepcopy_dict(v)
-    elif isinstance(v, (int, float, str, unicode, bool, type(None))):
+    elif isinstance(v, (int, long, float, str, unicode, bool, type(None))):
         return v
     else:
         print type(v)
@@ -659,7 +671,7 @@ if __name__ == '__main__':
         a2 = JsonParser()
         a3 = JsonParser()
 
-        jsonfile = u'test3.json'
+        jsonfile = u'pass3.json'
         test_json_file = open(jsonfile).read()
 
         a1.load(test_json_file)
