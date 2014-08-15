@@ -5,12 +5,16 @@ import socket
 import asyncore
 import threading
 from code import InteractiveConsole
+from cStringIO import StringIO
+
+from NSLogger import NSLogger
 
 # 负责接受Client socket的连接
 class TelnetServer(asyncore.dispatcher):
 	def __init__(self, host, port, accept_handler):
 		asyncore.dispatcher.__init__(self)
-		print 'TelnetServer..init'
+		self.logger = NSLogger.get_logger('NSServerConsole.TelnetServer')
+		self.logger.debug('__init__')
 		self.accept_handler = accept_handler
 		self.host = host
 		self.port = port
@@ -22,9 +26,10 @@ class TelnetServer(asyncore.dispatcher):
 		self.listen(5)
 
 	def try_bind(self):
+		self.logger.debug('try_bind')
 		while True:
 			try:
-				self.bind(self.host, self.port)
+				self.bind((self.host, self.port))
 				break
 			except:
 				self.port += 1
@@ -54,6 +59,8 @@ class TelnetConnection(asyncore.dispatcher):
 
 	def __init__(self, clientid, sock, encoding, receive_handler, disconnect_handler):
 		asyncore.dispatcher.__init__(self, sock)
+		self.logger = NSLogger.get_logger('NSServerConsole.TelnetConnection')
+		self.logger.debug('__init__')
 		self.w_buffer = StringIO()
 		self.r_buffer = StringIO()
 		self.sock = sock
@@ -65,7 +72,8 @@ class TelnetConnection(asyncore.dispatcher):
 
 
 	def handle_read(self):
-		data = self.recv(DEFAULT_RECV_BUFFER)
+		self.logger.debug('handle_read')
+		data = self.recv(TelnetConnection.DEFAULT_RECV_BUFFER)
 		if len(data) > 0:
 			print 'recv : ', data
 
@@ -89,6 +97,8 @@ class TelnetConnection(asyncore.dispatcher):
 class TelnetConsole(InteractiveConsole):
 	def __init__(self, client, locals = None, filename = "<console>"):
 		InteractiveConsole.__init__(self, locals, filename)
+		self.logger = NSLogger.get_logger('NSServerConsole.TelnetConsole')
+
 		self.client = client
 
 	def interact(self, banner = None):
@@ -107,12 +117,15 @@ class TelnetConsole(InteractiveConsole):
 			pass
 
 	def write(self, data):
+		self.logger.debug('write')
 		data = data.replace('\r\n', '\n').replace('\n', '\r\n')
 		self.client.send_data(data)
 
 class NSServerConsole(object):
 	def __init__(self, ip = '127.0.0.1', port = 9113, encoding = 'utf-8'):
 		super(NSServerConsole, self).__init__()
+		self.logger = NSLogger.get_logger('NSServerConsole.NSServerConsole')
+
 		self.hostname = ip
 		self.port = port
 		self.encoding = encoding
@@ -121,16 +134,30 @@ class NSServerConsole(object):
 		self.consoles = {}
 
 	def start(self):
-		print 'start'
-		self.TelnetServer = TelnetServer(self.hostname, self.port, self.when_connect)
+		self.logger.debug('start')
+		self.telnetServer = TelnetServer(self.hostname, self.port, self.when_connect)
 
 	def stop(self):
-		pass
+		self.logger.debug('stop')
+		clients = self.clients.values()
+		self.clients = {}
+		self.clientnames = {}
+		self.consoles = {}
+
+		for client in clients:
+			client.close()
+		if self.telnetServer is not None:
+			self.telnetServer.close()
+			self.telnetServer = None
 
 	def when_connect(self, clientid, clientsock):
-		con = TelnetConnection(clientid, sock, self.encoding, self.when_receive, self.when_exit)
+		self.logger.debug('when_connect')
+		con = TelnetConnection(clientid, clientsock, self.encoding, self.when_receive, self.when_exit)
+		con.send_data('^] -> set crlf :')
+		return True
 
 	def when_receive(self, clientsock, string):
+		self.logger.debug('when_receive')
 		print clientsock.clientname
 		if string in self.clientnames:
 			clientsock.send_data('%s is exited!!!\r\n', string)
@@ -139,7 +166,22 @@ class NSServerConsole(object):
 			clientsock.send_data('Hello, %s!!!\r\n' % clientsock.clientname)
 			self.consoles[clientsock] = TelnetConsole(clientsock)
 			self.consoles[clientsock].interact()
+			self._add_client(clientsock)
+		return True
 
 
 	def when_exit(self, clientsock):
-		pass
+		self.logger.debug('when_exit')
+		self._del_client(clientsock)
+		return True
+
+	def _del_client(self, clientsock):
+		self.logger.debug('_del_client')
+		del self.clients[clientsock.client_id]
+		del self.clientnames[clientsock.clientname]
+		del self.consoles[clientsock]
+
+	def _add_client(self, clientsock):
+		self.logger.debug('_add_client')
+		self.clients[clientsock.client_id] = clientsock
+		self.clientnames[clientsock.clientname] = clientsock.client_id

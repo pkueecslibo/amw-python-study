@@ -18,7 +18,7 @@ class NSLogger(object):
 		ch.setLevel(logging.DEBUG)
 		
 
-		formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+		formatter = logging.Formatter('%(asctime)s - %(filename)s - %(lineno)d - %(message)s')
 		ch.setFormatter(formatter)
 
 		logger.addHandler(ch)
