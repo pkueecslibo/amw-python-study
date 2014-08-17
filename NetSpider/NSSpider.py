@@ -1,6 +1,6 @@
 import socket
 import sys
-import asyncore
+import time
 from NSLogger import NSLogger
 
 class NSSpider:
@@ -16,8 +16,8 @@ class NSSpider:
         self.logger.debug('_startTelnetConsole')
         #try:
         import NSServerConsole
-        self.serverConsole = NSServerConsole.NSServerConsole(ip = '127.0.0.1', port = 30000)
-        self.serverConsole.start()
+        self.telnetServer = NSServerConsole.TelnetServer(host = '127.0.0.1', port = 30000)
+        self.telnetServer.start()
         #asyncore.loop()
         #except Exception, e:
         #    #self.logger.error('initTelnet failed: ', str(e))
@@ -26,10 +26,12 @@ class NSSpider:
     def run(self):
         self.logger.debug('run....')
         while True:
-            sleep(1)
+            time.sleep(1)
+            self.telnetServer.process()
 
         
 
 if __name__ == '__main__':
     spider = NSSpider()
     spider.setup()
+    spider.run()
