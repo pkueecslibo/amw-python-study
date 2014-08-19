@@ -52,9 +52,10 @@ class TelnetServer():
 
 	def process(self):
 		self.logger.debug('process')
+
 		readable , writable , exceptional = select.select(self.r_socks, self.w_socks, self.r_socks,TelnetServer.TIMEOUT)
 		if not(readable, writable, exceptional):
-			self.logger.debug('超时...')
+			self.logger.debug('time out...')
 			return
 		for s in readable:
 			print 'read s: ', s
@@ -64,12 +65,12 @@ class TelnetServer():
 				self.handle_accept()
 			else:
 				#发来消息
-				self.connections[s].handle_read()
+				self.handle_read(s)
 		for s in writable:
 			print 'write s: ', s.getpeername()
-			self.connections[s].handle_write()
+			self.handle_write(s)
 		for s in exceptional:
-			del self.connections[s]
+			self.handle_leave(s)
 
 	def handle_accept(self):
 		pair = self.sock.accept()
@@ -77,37 +78,43 @@ class TelnetServer():
 			pass
 		else:
 			sock, addr = pair
-			self.connections[sock] = TelnetConnection(self.client_id, sock)
+			conn = self._add_client(self.client_id, sock)
 			self.client_id += 1
 			print 'connect from ', sock.getpeername()
-			self.connections[sock].send_data('hello')
+			conn.send_data('hello\r\n')
 			#self.logger.debug('connect from %s' % sock.getpeername())
 
-	def when_connect(self, clientid, clientsock):
-		self.logger.debug('when_connect')
+	def handle_read(self, client):
+		self.logger.debug('handle_read')
+		conn = self.connections.get(client, None)
+		if conn:
+			data = conn.handle_read()
+			conn.send_data(data)
+
+	def handle_write(self, client):
+		self.logger.debug('handle_write')
+		conn = self.connections.get(client, None)
+		if conn:
+			conn.handle_write()
+
+	def handle_leave(self, client):
+		self.logger.debug('handle_leave')
+		self._del_client(client)
 		return True
 
-	def when_receive(self, clientsock, string):
-		self.logger.debug('when_receive')
-		print clientsock.clientname
-		if string in self.clientnames:
-			clientsock.send_data('%s is exited!!!\r\n', string)
-		else:
-			clientsock.clientname = string
-			clientsock.send_data('Hello, %s!!!\r\n' % clientsock.clientname)
-		return True
-
-
-	def when_exit(self, clientsock):
-		self.logger.debug('when_exit')
-		self._del_client(clientsock)
-		return True
-
-	def _del_client(self, clientsock):
+	def _del_client(self, client):
 		self.logger.debug('_del_client')
+		del self.connections[client]
+		self.r_socks.remove(client)
+		self.w_socks.remove(client)
 
-	def _add_client(self, clientsock):
+	def _add_client(self, client_id, client):
 		self.logger.debug('_add_client')
+
+		self.r_socks.append(client)
+		self.w_socks.append(client)
+		self.connections[client] = TelnetConnection(client_id, client)
+		return self.connections[client]
 
 class TelnetConnection(object):
 	DEFAULT_RECV_BUFFER = 4096
@@ -127,6 +134,7 @@ class TelnetConnection(object):
 		data = self.sock.recv(TelnetConnection.DEFAULT_RECV_BUFFER)
 		if len(data) > 0:
 			print 'recv : ', data
+		return data
 
 	def handle_write(self):
 		self.logger.debug('handle_write')
@@ -137,6 +145,7 @@ class TelnetConnection(object):
 			self.w_buffer.write(buff[sent:])
 
 	def send_data(self, data):
+		data = data.replace('\r\n', '\n').replace('\n', '\r\n')
 		self.w_buffer.write(data)
 
 	def test_writable(self):
